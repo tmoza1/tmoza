@@ -1,0 +1,98 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
+
+begin
+
+a    = addfile("toc_melbjan.nc","r")    ; read in january ozone data for Melbourne (CMAM nudged special dynamics model)
+dytoz  = a->dytoz
+time = a->time(:)
+printVarSummary(dytoz)
+printVarSummary(time)
+
+dimt = dimsizes(dytoz)
+dytoz_2=rm_single_dims(dytoz)
+printVarSummary(dytoz_2)
+dytoz_3 = reshape (dytoz_2, (/31,31/))     ; reshape array into 31 years each with 31 days
+
+iarr=new((/31,5/),float) ;  fill with minimum, 25th percentile, median, 75th percentile, maximum of each timeseries
+
+do i=0, 30
+qsort(dytoz_3(i,:))
+dimt = dimsizes(dytoz_3(i,:))
+
+x25  = round(.25*dimt,3)-1     ; -1 to account for NCL indexing starting
+x75  = round(.75*dimt,3)-1     ; at 0 
+iarr(i,:) = (/min(dytoz_3(i,:)),dytoz_3(i,x25(0)),dim_median(dytoz_3(i,:)),dytoz_3(i,x75(0)),max(dytoz_3(i,:))/)  
+end do
+
+printVarSummary(iarr)
+printMinMax(iarr,True) 
+
+qsort(dytoz_2)
+dytoz_4 = dytoz_2(0:77)
+print(dytoz_2(0:77))
+printVarSummary(time)      ; print lowest 77 values
+
+utc_date = cd_calendar(dytoz_4&time, 0)
+year   = tointeger(utc_date(:,0))    ; Convert to integer for
+month  = tointeger(utc_date(:,1))    ; use sprinti 
+day    = tointeger(utc_date(:,2))
+time@units = "days 1970-1-1 00:00:0.0"
+month_abbr = (/"","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep", \"Oct","Nov","Dec"/)
+date_str =  sprinti("%0.2i ", day) + \month_abbr(month) + " "  + sprinti("%0.4i", year)
+
+print(date_str)print(dytoz_4)
+print(dytoz_2&time(0:77))
+
+wks_type = "png"
+wks_type@wkWidth = 2000
+wks_type@wkHeight = 2000
+wks = gsn_open_wks(wks_type,"dytoz_1")
+
+res            = True                         ; plot mods desired
+res@tiMainString = "Total Column Ozone for January - Melbourne"
+res@tiYAxisString = "Column Ozone DU"
+res@tiXAxisString = "Year"
+
+printMinMax(iarr,True)
+
+
+res@gsnMaximize = True
+res@trXMinF = min(1980)-1
+res@trXMaxF = max(2010)+1
+res@tmXBMode = "Manual"
+res@tmXBTickStartF = res@trXMinF
+
+time_1 = ispan(1980,2010,1)
+
+mres = True                                   ; to add polymarkers for low ozone events
+mres@gsMarkerColor = "navy blue"              ; change color
+mres@gsMarkerIndex = 1                        ; change style
+mres@gsMarkerSizeF = 40.                      ; change size\
+
+plot = boxplot(wks,time_1,iarr,False,res,False)
+
+dum1 = gsn_add_polymarker(wks,plot,1981,263.1563,mres)
+dum2 = gsn_add_polymarker(wks,plot,1982,263.6897,mres)
+dum3 = gsn_add_polymarker(wks,plot,1987,263.6771,mres)
+dum4 = gsn_add_polymarker(wks,plot,1988,259.8023,mres) 
+dum5 = gsn_add_polymarker(wks,plot,1990,269.2997,mres)
+dum6 = gsn_add_polymarker(wks,plot,1991,253.7892,mres) 
+dum7 = gsn_add_polymarker(wks,plot,1993,259.3963,mres) 
+dum8 = gsn_add_polymarker(wks,plot,1994,253.6151,mres)
+dum9 = gsn_add_polymarker(wks,plot,1997,261.945,mres) 
+dum10 = gsn_add_polymarker(wks,plot,1998,266.5253,mres) 
+dum11 = gsn_add_polymarker(wks,plot,1999,242.4264,mres)
+dum12 = gsn_add_polymarker(wks,plot,2000,252.4668,mres)
+dum13 = gsn_add_polymarker(wks,plot,2001,258.2918,mres) 
+dum14 = gsn_add_polymarker(wks,plot,2003,259.5922,mres)
+dum15 = gsn_add_polymarker(wks,plot,2005,259.5839,mres)
+dum16 = gsn_add_polymarker(wks,plot,2006,260.5132,mres)
+dum17 = gsn_add_polymarker(wks,plot,2007,251.833,mres)
+dum18 = gsn_add_polymarker(wks,plot,2008,261.4251,mres)
+dum19 = gsn_add_polymarker(wks,plot,2009,250.0051,mres)
+dum20 = gsn_add_polymarker(wks,plot,2010,257.4051,mres)
+
+draw(plot)                                    ; boxplot does not call these
+frame(wks) 
+
+end 
