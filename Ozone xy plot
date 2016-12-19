@@ -1,0 +1,18 @@
+begin 
+f     = addfile ("toc_melbjan.nc","r") ; read in ozone january data for melbourne (ACCESS-CCM)
+toc   = f->field34172
+time_1= f->time_1     
+
+toc_1= rm_single_dims(toc)                 
+printVarSummary(toc_1)              
+
+toc_1Dtrend = dtrend_msg(ispan(1,1560,1),toc_1,False,False)  ; remove trend 
+
+wks   = gsn_open_wks ("png","xy")               ; send graphics to PNG file
+
+res                  = True                     ; plot mods desired
+res@tiMainString     = "Column ozone for January"          ; add title
+
+plot  = gsn_csm_xy (wks,ispan(1,1560,1),toc_1Dtrend,res) ; create plot
+
+end
