@@ -1,0 +1,96 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
+begin
+a    = addfile("ts_melbjan.nc","r")                 ; read in january surface temperature data for melbourne (ACCESS-CCM)
+ts  = a->ts
+date= a->time_1(:)
+printVarSummary(ts)
+
+selectedday= (/460,566,916,967,1071,1087,1136,1172,1218,1317,1453,1480,1526,1556/)     ; timestamps for low ozone days
+
+gooddate= cd_calendar(date,0)
+TIME = gooddate 
+year    = toint( TIME(:,0) )   
+month   = toint( TIME(:,1) )   
+day     = toint( TIME(:,2) )    
+ddd     = day_of_year(year, month, day)    
+yyyyddd = year*1000 + ddd 
+
+tsclm = clmDayTLL(ts,yyyyddd)                  ;daily climatology
+tsanom = calcDayAnomTLL(ts,yyyyddd,tsclm)      ; daily anomalies
+printVarSummary(tsanom)
+
+average = dim_avg_n_Wrap(tsanom(selectedday,:,:),0)     ; average anomaly for low ozone days
+print(average)
+
+ts_lowoz = tsanom(selectedday,:,:)
+print(ts_lowoz)
+
+ts_2=rm_single_dims(tsanom)
+ts_3 = reshape (ts_2, (/52,30/))     ; reshape into array of 52 years each with 30 days
+
+iarr=new((/52,5/),float) ;  fill with minimum, 25th percentile, median, 75th percentile, maximum of each timeseries
+do i=0, 51
+qsort(ts_3(i,:))
+dimt = dimsizes(ts_3(i,:))
+
+x25  = round(.25*dimt,3)-1     ; -1 to account for NCL indexing starting
+x75  = round(.75*dimt,3)-1     ; at 0              
+
+iarr(i,:) = (/min(ts_3(i,:)),ts_3(i,x25(0)),dim_median(ts_3(i,:)),ts_3(i,x75(0)),max(ts_3(i,:))/)    
+end do
+printVarSummary(iarr) 
+
+qsort(ts_2)
+ts_4 = ts_2(0:77)   ; sorts values in ascending order with lowest 5th percent of values displayed
+print(ts_4)
+
+wks_type = "png"
+wks_type@wkWidth = 2000
+wks_type@wkHeight = 2000
+wks = gsn_open_wks(wks_type,"box_2") 
+
+res            = True                         ; plot mods desired
+res@tiMainString = "Surface Temperature for January - Melbourne"
+res@tiYAxisString = "Temprature K"
+res@tiXAxisString = "Year"
+res@gsnMaximize = True
+
+wks_type@wkWidth = 2000
+wks_type@wkHeight = 2000
+
+res@trXMinF = min(1960)-1
+res@trXMaxF = max(2011)+1
+res@tmXBMode = "Manual"
+res@tmXBTickStartF = res@trXMinF
+
+time= ispan(1960,2011,1)
+printVarSummary(time)
+printVarSummary(iarr)
+
+mres = True                                         ; to add polymarkers for low ozone year temperatures
+mres@gsMarkerColor = "navy blue"              ; change color
+mres@gsMarkerIndex = 1                        ; change style
+mres@gsMarkerSizeF = 40.                      ; change size\
+
+plot = boxplot(wks,time,iarr,False,res,False)
+
+dum1 = gsn_add_polymarker(wks,plot,1975,-3.638062,mres) 
+dum2 = gsn_add_polymarker(wks,plot,1978,2.397797,mres)
+dum3 = gsn_add_polymarker(wks,plot,1990,0.6137085,mres) 
+dum4 = gsn_add_polymarker(wks,plot,1992,-3.694122,mres) 
+dum5 = gsn_add_polymarker(wks,plot,1995,-3.829346,mres)
+dum6 = gsn_add_polymarker(wks,plot,1996,-0.2391052,mres) 
+dum7 = gsn_add_polymarker(wks,plot,1997,7.360413,mres) 
+dum8 = gsn_add_polymarker(wks,plot,1999,2.634399,mres)
+dum9 = gsn_add_polymarker(wks,plot,2000,-3.912628,mres) 
+dum10 = gsn_add_polymarker(wks,plot,2003,4.819305,mres) 
+dum11 = gsn_add_polymarker(wks,plot,2008,-0.3769226,mres)
+dum12 = gsn_add_polymarker(wks,plot,2009,2.792938,mres)
+dum13 = gsn_add_polymarker(wks,plot,2010,5.149414,mres) 
+dum14 = gsn_add_polymarker(wks,plot,2011,7.251617,mres)   
+years = (/1975,1978,1990,1992,1995,1996,1997,1999,2000,2003,2008,2009,2010,2011/)
+yarr = ts_lowoz(:,:,:)
+
+draw(plot)
+frame(wks) 
+end  
