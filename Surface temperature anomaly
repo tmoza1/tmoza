@@ -1,0 +1,101 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+f    = addfile("ts_jan.nc","r")                  ; read in january data for surface temperature (ACCESS-CCM)
+ts=f->ts(:,:,:)
+date= f->time_1(:)
+
+selectedday= (/460,566,916,967,1071,1087,1136,1172,1218,1317,1453,1480,1526,1556/)  ; select timestamps with low ozone events
+lat = ts&lat
+print(lat)  
+
+gooddate= cd_calendar(date,0)
+TIME = gooddate
+year    = toint( TIME(:,0) )
+month   = toint( TIME(:,1) )
+day     = toint( TIME(:,2) ) 
+ddd     = day_of_year(year, month, day) 
+yyyyddd = year*1000 + ddd       
+print(yyyyddd)
+
+tsclm = clmDayTLL(ts,yyyyddd)                          ; daily climatology
+tsanom = calcDayAnomTLL(ts,yyyyddd,tsclm)              ; anomlies
+printVarSummary(tsanom)
+
+average = dim_avg_n_Wrap(tsanom(selectedday,:,:),0)     ; avergae anomalies for low ozone events
+printVarSummary(average)
+
+x = tsanom                                               ; to add stippling
+y = tsanom(selectedday,:,:)
+
+dimXY = dimsizes(x)
+ntim  = dimXY(0)
+nlat  = dimXY(1)
+mlon  = dimXY(2)                                  
+
+xtmp = x(lat|:,lon|:,time_1|:)       ; reorder but do it only once [temporary]
+ytmp = y(lat|:,lon|:,time_1|:)                                      
+xAve = dim_avg_Wrap (xtmp)              ; calculate means at each grid point 
+yAve = dim_avg_Wrap (ytmp)
+
+xVar = dim_variance (xtmp)         ; calculate variances
+yVar = dim_variance (ytmp)                                
+
+sigr = 0.05                        ; critical sig lvl for r
+xEqv = equiv_sample_size (xtmp, sigr,0)
+yEqv = equiv_sample_size (ytmp, sigr,0)
+wgt  = latRegWgt(lat, "float", 0)
+
+printVarSummary(wgt)
+wgty = wgt
+
+xN   = wgt_areaave (xEqv, wgty, 1., 0)    ; wgty could be gaussian weights 
+yN   = wgt_areaave (yEqv, wgty, 1., 0)
+print(xN)
+print(yN)                               
+
+iflag= False                        ; population variance similar
+prob = xAve
+prob = ttest(xAve,xVar,xN,yAve,yVar,yN,iflag,False) 
+printVarSummary(prob)
+
+printMinMax(prob,True)
+
+wks_type = "png"
+wks_type@wkWidth = 2000
+wks_type@wkHeight = 2000
+wks = gsn_open_wks(wks_type,"anomavg")                ; send graphics to PNG file
+
+res                      = True                  ; plot mods desired
+res@tiMainString         = "Average Temperature Anomalies for low ozone days"     ; title
+res@gsnMaximize = True
+res@cnFillOn             = True                  ; turn on color fill
+res@cnFillPalette        = "BlWhRe"              ; choose colormap
+res@cnLinesOn            = False
+res@gsnLeftString   = ""              ; add the gsn titles
+res@gsnCenterString = ""
+res@gsnRightString  = ""
+res@cnLevelSelectionMode = "ManualLevels"        ; set manual contour levels
+res@cnMinLevelValF       =  -4.5               ; set min contour level
+res@cnMaxLevelValF       =   4.5                  ; set max contour level
+res@cnLevelSpacingF      =   1               ; set contour spacing
+res@mpGeophysicalLineThicknessF = 2
+res@mpLimitMode           = "LatLon"
+res@mpMinLatF             =   -60.
+res@mpMaxLatF             =    30.
+res@mpMinLonF             =   100.
+res@mpMaxLonF             =   180. 
+
+res3 = True
+res3@cnLinesOn = False
+res3@cnLineLabelsOn = False
+res3@cnLevelSelectionMode = "ExplicitLevels"
+res3@cnLevels = (/0.,0.05/)
+res3@cnFillPatterns = (/-1,16,-1/)
+res3@cnInfoLabelOn = False
+res3@tiMainOn = False
+res3@cnFillOn = True
+res3@cnMonoFillPattern = False
+res3@cnFillColor = "black"
+res3@cnMonoFillColor = True
+res3@cnFillScaleF        = .5        ; add extra density
+
+plot = gsn_csm_contour_map_overlay(wks,average(:,:),\prob(:,:),res,res3)     
